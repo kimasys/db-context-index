@@ -1,18 +1,51 @@
 # db-context-index
 
-Structured database context indexing for AI-assisted SQL migrations.
+Context-Oriented Database Navigation for AI Agents.
 
-**PT-BR:** Indexação estruturada de contexto de banco de dados para migrations SQL assistidas por IA.
+**PT-BR:** Navegação orientada a contexto de banco de dados para agentes IA.
 
 ---
 
-## What this project solves
+## What this is
 
-AI coding agents are powerful, but database work is context-sensitive. When a PostgreSQL or Supabase schema grows, agents often need to read large SQL files before making even a small migration. That increases token usage, slows down the workflow, and creates a real risk of missing the specific relationship, RLS policy, trigger, or function that matters.
+AI coding agents have no map of your database. Before answering even a simple pre-migration question, an unguided agent reads every migration file, every type definition, every component that touches the schema — to reconstruct what it needs.
 
-`db-context-index` proposes a practical documentation and skill pattern for giving AI agents a compact, navigable database map before they touch raw SQL.
+`db-context-index` is a structured information layer that changes how AI agents navigate database context.
 
-**PT-BR:** Este projeto cria uma camada de índice entre a IA e o banco real, permitindo que o agente leia primeiro um mapa compacto e só depois abra os arquivos SQL realmente necessários.
+Instead of scanning 49 migration files, the agent reads one structured index. It finds what it needs, loads only what matters, and produces a more consistent, better-grounded response.
+
+**PT-BR:** Em vez de escanear 49 arquivos de migration, o agente lê um índice estruturado. Encontra o que precisa, carrega só o que importa, e produz respostas mais consistentes.
+
+---
+
+## Measured results
+
+Tested on a real Supabase production project (49 migrations, 22 tables, full RLS):
+
+| Metric | Without index | With index | Change |
+|---|---|---|---|
+| Cache read tokens | 235,900 | 94,200 | **▼ 60.1%** |
+| Total session cost | $0.2322 | $0.1452 | **▼ 37.5%** |
+| Response quality | baseline | more best practices | ↑ |
+| API processing time | 1m 10s | 1m 10s | = equal |
+
+→ Full methodology and analysis: [`docs/case-study-claude-code.md`](docs/case-study-claude-code.md)
+
+---
+
+## How it works
+
+```
+Without index:
+Claude → 49 migrations → types.ts (1,500+ lines) → components → infer patterns → answer
+         ════════════════════════════ 235,900 tokens ═══════════════════════════════
+
+With index:
+Claude → SCHEMA.md (477 lines) → targeted SQL if needed → answer
+         ══════════ 94,200 tokens ═════════════════════
+```
+
+The index does not change the prompt. It changes what the agent reads before answering.
 
 ---
 
@@ -20,45 +53,20 @@ AI coding agents are powerful, but database work is context-sensitive. When a Po
 
 Do not make the AI read the full database schema by default.
 
-Make the AI read a structured database index first:
+Give it a structured index first:
 
 ```txt
 db-index/
-├── 00-overview.md
-├── 01-tables.md
-├── 02-rls-policies.md
-├── 03-functions-triggers.md
-├── 04-relationships.md
-├── 05-migration-risks.md
-└── 99-change-log.md
+├── 00-overview.md           → domain map, critical systems
+├── 01-tables.md             → table inventory with risk + FK targets
+├── 02-rls-policies.md       → all policies and helper functions
+├── 03-functions-triggers.md → all functions and triggers
+├── 04-relationships.md      → FK graph and cascade rules
+├── 05-migration-risks.md    → known fragile areas
+└── 99-change-log.md         → migration history with risk classification
 ```
 
-The index acts as a navigation layer. It tells the AI where the relevant database context is, what objects are connected, and what risks must be checked before writing a migration.
-
----
-
-## Main goals
-
-- Reduce token usage when working with large schemas.
-- Improve speed when AI agents inspect database context.
-- Reduce migration errors caused by missing dependencies.
-- Make RLS and multi-tenant rules easier to reason about.
-- Keep database knowledge reusable across AI sessions.
-- Give humans and agents the same structured map of the database.
-
----
-
-## Current focus
-
-This first version focuses on:
-
-- PostgreSQL
-- Supabase
-- SQL migrations
-- RLS policies
-- functions and triggers
-- schema dependency mapping
-- Claude Code Skills
+The index is the navigation layer. The agent reads it, identifies what matters, and opens only the SQL files it actually needs.
 
 ---
 
@@ -73,7 +81,8 @@ This first version focuses on:
 │   ├── concept.md
 │   ├── methodology.md
 │   ├── token-efficiency.md
-│   └── roadmap.md
+│   ├── roadmap.md
+│   └── case-study-claude-code.md   ← real benchmark, real project
 ├── examples/
 │   └── supabase/
 │       └── db-index/
@@ -97,21 +106,40 @@ This first version focuses on:
 
 ## Claude Code Skill
 
-The first skill lives at:
+Install the skill at:
 
 ```txt
 skills/db-context-indexer/SKILL.md
 ```
 
-Use it when working with PostgreSQL, Supabase, SQL migrations, RLS policies, triggers, functions, views, or schema refactoring.
+Copy it to `.claude/commands/db-context-indexer.md` in your project and invoke with `/db-context-indexer` before any database work.
+
+Use it when working with: PostgreSQL schemas, Supabase migrations, RLS policies, triggers, functions, views, or schema refactoring.
+
+---
+
+## Why "context engineering" and not "prompt engineering"
+
+A prompt tells the agent *what to do*.
+
+A context index changes *what the agent reads before doing it*.
+
+The two tests in this project had nearly identical direct input tokens (352 vs 349) — the same prompt, the same system. What changed was the reading behavior: which files Claude opened, in what order, and how much it loaded before it could answer with confidence.
+
+This is closer to **context architecture** than to prompt engineering.
+
+The structured index does three things a prompt cannot:
+1. **Eliminates search** — patterns are documented, not inferred from 49 files
+2. **Externalizes institutional knowledge** — RLS patterns, risk areas, and dependencies become first-class documentation
+3. **Creates behavioral consistency** — every session follows the same workflow regardless of which files happen to be in the agent's cache
 
 ---
 
 ## Status
 
-Experimental methodology based on a real-world AI-assisted development pain point.
+v1 — documentation-first, validated with a real production project.
 
-The first public version is intentionally documentation-first. Automation scripts may be added later.
+Benchmark published. Methodology documented. Ready to use.
 
 ---
 
